@@ -63,7 +63,7 @@ There are parts of Contentgremlin that will be fairly dogmatic, such as SQLite u
 
 The core property of any user is the uid. Names and email addresses come and go, but your consistent identity persists through it all. This is what your media, and your comments, attach to.
 
-The users table does *not* include nicknames, emails, or passwords. The default display string, is the one most recently 'touched'.
+The users table does *not* include nicknames, emails, or passwords. The default display string, is the one most recently 'touched' (just a timestamp update, which is done through account settings, not automatically on login).
 
 ### Display names have their own table
 
