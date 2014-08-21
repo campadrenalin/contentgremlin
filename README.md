@@ -54,3 +54,67 @@ In fact, this mechanism is so solid, it can survive hard reboots, where none of 
 As a parallel part of the process, Contentgremlin cleans up any half-uploads it finds, and verifies that each finished file has a matching checksum, according to the checksums in the database.
 
 It also moves raw uploads after transcoding finishes.
+
+## Authentication
+
+There are parts of Contentgremlin that will be fairly dogmatic, such as SQLite usage, but authentication is *designed* to be cleanly modular, flexible, and easily comprehensible in any scenario.
+
+### User == uid
+
+The core property of any user is the uid. Names and email addresses come and go, but your consistent identity persists through it all. This is what your media, and your comments, attach to.
+
+The users table does *not* include nicknames, emails, or passwords. The default display string, is the one most recently 'touched'.
+
+### Display names have their own table
+
+We have a separate table for nicknames and email addresses. It has a foreign key to the users table, and a timestamp. It does not contain any secret info. It is uniquely keyed on display string.
+
+### Passwords and other secret info have a third table
+
+These foreign-key onto the display names table. They have a plugin-name field, and a content field. Some auth plugins will want to encrypt (or preferably, hash) the content data, but others won't, so we can't enact a single policy across this table.
+
+### Why the separation?
+
+This seems like more complexity, not less. But it handles every auth scenario well, that I can think to throw at it, without becoming a maze of corner cases (or otherwise incomprehensible). As long as you kinda understand what's going on under the hood, which you can inspect with any sqlite prompt, it should be obvious what the behavioral result will be.
+
+Also keep in mind, in these scenarios, how SQLite might protect us from crazy invariants via the foreign key (and unique key) relationships.
+
+#### Just a username
+
+An account may have a username, but no passwords, if it is a system account, or the user intended to deactivate their account without deleting it for archive purposes.
+
+#### Username + Password
+
+Obviously, you can attach a password to a username, and log in with that. This will probably be the common case for anyone not using Persona or OAuth.
+
+#### Multiple usernames, each with a different password
+
+Less of a legit case, but could be useful for doing some stuff in 'mod context', and other stuff as yourself, without actually creating two accounts.
+
+Note that you could only log in via Username A with Password A, and Username B with Password B, etc., assuming each username had exactly one password associated with it. You could not log in with Username A and Password B, for example.
+
+#### Single acount, multiple passwords
+
+Maybe someday we'll be big enough that big corporations will use Contentgremlin. IT COULD HAPPEN, DON'T JUDGE. If it does, we'll have supported a feature from Day 1 to allow multiple people access to the same account, without knowing each others' passwords.
+
+This is also another approach you could take to site-wide moderation. Look at all this flexibility! Like a gymnast, she is.
+
+#### Username + Email + Persona
+
+You don't need an extra password record for Persona, because it works via email address and third-party cryptographic certs (which the client can re-supply on demand). You just need an email address, which is a type of display name (the Persona plugin detects that it is an email based on regex).
+
+On the other hand, why present yourself as your email address? Custom handles are 'da bomb', as the kids used to say when I was a kid but spent all day twiddling bits. Display with a custom handle, log in with an email address.
+
+#### Just an Email
+
+Similar to the above case, but without a custom handle. For when you really can't be bothered to do much more "signing up" than logging in with Persona.
+
+#### Old usernames
+
+Whatever handle you use these days, you might have old ones, which should all 301 redirect to what you call yourself *now*. You could call this the "Wildstyle" use case.
+
+As you might imagine, this is as simple as setting up password/email/whatever auth for your current username, and dropping auth for your old ones. Your alt handles will all still redirect to your current preferred one, and they'll all still belong to you!
+
+#### No display data
+
+Have you ever seen a reddit post where a comment was authored by `<deleted>`? Works the same way. We do provide options for nuking all the content you've ever posted, but when you just want to run off into the night anonymously, it's as simple (technically speaking) as deleting all your display names.
